@@ -14,7 +14,8 @@ model User {
   updatedAt DateTime @updatedAt() @map("updated_at")
   name      String?
   surname   String?
-  avatar    String?
+  picture    String?
   email     String?  @unique()
   mobile    String?  @unique()
+  googleId  String?  @unique()
 }
