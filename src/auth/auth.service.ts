@@ -7,7 +7,7 @@ import Redis from 'ioredis'
 import { Twilio } from 'twilio'
 import { SendMobileVerify, VerifyMobileCode } from './dto/auth.dto'
 import { Response } from 'express'
-import type { User } from 'generated/prisma'
+import type { Users } from 'generated/prisma'
 
 @Injectable()
 export class AuthService {
@@ -54,7 +54,7 @@ export class AuthService {
 		return { user, ...tokens }
 	}
 
-	async googleAuth(data: User) {
+	async googleAuth(data: Users) {
 		if (!data.email) throw new BadRequestException()
 
 		let user = await this.userService.getByEmail(data.email)

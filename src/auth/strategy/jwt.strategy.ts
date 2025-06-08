@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
-import type { User } from 'generated/prisma';
+import type { Users } from 'generated/prisma';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 		})
 	}
 
-	async validate(data: { id: string }): Promise<User | null> {
+	async validate(data: { id: string }): Promise<Users | null> {
 			return this.userService.getById(data.id)
 	}
 }

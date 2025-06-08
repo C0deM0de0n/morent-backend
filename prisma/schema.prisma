@@ -8,14 +8,106 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id() @default(cuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt() @map("updated_at")
+model Users {
+  id        String      @id() @default(cuid())
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt() @map("updated_at")
   name      String?
   surname   String?
   picture   String?
-  email     String?  @unique()
-  mobile    String?  @unique()
-  googleId  String?  @unique()
+  email     String?     @unique()
+  mobile    String?     @unique()
+  googleId  String?     @unique()
+  Reviews   Reviews[]
+  Favorites Favorites[]
+  role      Role        @default(USER)
+
+  @@map("user")
 }
+
+model Products {
+  id          String      @id() @default(cuid())
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt() @map("updated_at")
+  name        String
+  description String
+  icons       String[]    @default([])
+  type        CarType
+  steering    CarSteering
+  capacity    Capacity
+  gasoline    Int
+  price       Float
+  discount    Discounts[]
+  reviews     Reviews[]
+  Favorites   Favorites[]
+
+  @@map("product")
+}
+
+model Discounts {
+  id        String   @id() @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+  discount  Int
+
+  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+
+  @@map("discount")
+}
+
+model Reviews {
+  id        String   @id() @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+  rating    Int
+  comment   String
+
+  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  userId    String   @map("user_id")
+
+  @@map("review")
+}
+
+model Favorites {
+  id        String   @id() @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+
+  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  userId    String   @map("user_id")
+
+  @@map("favorite")
+}
+
+enum CarType {
+  SPORT
+  SUV
+  MPV
+  SEDAN
+  COUPE
+  HATCHBACK
+}
+
+enum CarSteering {
+  LEFT
+  RIGHT
+}
+
+enum Capacity {
+  TWO   
+  FOUR  
+  SIX   
+  EIGHT
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+

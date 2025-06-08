@@ -9,11 +9,11 @@ import {
 	Res,
 	UseGuards,
 } from '@nestjs/common'
-import { Request, Response } from 'express'
-import { User } from 'generated/prisma'
 import { Google0AuthGuard } from 'src/auth/guard/google.guard'
 import { AuthService } from './auth.service'
 import { SendMobileVerify, VerifyMobileCode } from './dto/auth.dto'
+import type { Users } from 'generated/prisma'
+import { Request, Response } from 'express'
 
 @Controller('auth')
 export class AuthController {
@@ -49,7 +49,7 @@ export class AuthController {
 		@Req() req: Request,
 		@Res({ passthrough: true }) res: Response
 	) {
-		const googleUser = req.user as User
+		const googleUser = req.user as Users
 		if (!googleUser) throw new BadRequestException('Google user not found')
 
 		const { refreshToken, ...user } = await this.authService.googleAuth(googleUser)
