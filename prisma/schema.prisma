@@ -18,28 +18,83 @@ model Users {
   email     String?     @unique()
   mobile    String?     @unique()
   googleId  String?     @unique()
-  Reviews   Reviews[]
-  Favorites Favorites[]
+  reviews   Reviews[]
+  Cart      Cart[]
+  favorites Favorites[]
   role      Role        @default(USER)
 
   @@map("user")
 }
 
+model Favorites {
+  id            String          @id() @default(cuid())
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt() @map("updated_at")
+  favoritesItem FavoritesItem[]
+
+  user   Users  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique @map("user_id")
+
+  @@map("favorite")
+}
+
+model FavoritesItem {
+  id        String   @id() @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+
+  product     Products  @relation(fields: [productId], references: [id])
+  favorite    Favorites @relation(fields: [favoritesId], references: [id])
+  productId   String    @map("product_id")
+  favoritesId String    @map("favorite_id")
+
+  @@unique([favoritesId, productId])
+  @@map("favorite_items")
+}
+
+model Cart {
+  id        String      @id() @default(cuid())
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt() @map("updated_at")
+  cartItems CartItems[]
+
+  user   Users  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique @map("user_id")
+
+  @@map("cart")
+}
+
+model CartItems {
+  id        String   @id() @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+  quantity  Int      @default(1)
+
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  cartId    String   @map("cart_id")
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
 model Products {
-  id          String      @id() @default(cuid())
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt() @map("updated_at")
-  name        String
-  description String
-  icons       String[]    @default([])
-  type        CarType
-  steering    CarSteering
-  capacity    Capacity
-  gasoline    Int
-  price       Float
-  discount    Discounts[]
-  reviews     Reviews[]
-  Favorites   Favorites[]
+  id            String          @id() @default(cuid())
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt() @map("updated_at")
+  name          String
+  description   String
+  icons         String[]        @default([])
+  type          CarType
+  steering      CarSteering
+  capacity      Capacity
+  gasoline      Int
+  price         Float
+  discount      Discounts[]
+  reviews       Reviews[]
+  cartItems     CartItems[]
+  favoritesItem FavoritesItem[]
 
   @@map("product")
 }
@@ -68,20 +123,8 @@ model Reviews {
   productId String   @map("product_id")
   userId    String   @map("user_id")
 
+  @@unique([userId, productId])
   @@map("review")
-}
-
-model Favorites {
-  id        String   @id() @default(cuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt() @map("updated_at")
-
-  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String   @map("product_id")
-  userId    String   @map("user_id")
-
-  @@map("favorite")
 }
 
 enum CarType {
@@ -99,9 +142,9 @@ enum CarSteering {
 }
 
 enum Capacity {
-  TWO   
-  FOUR  
-  SIX   
+  TWO
+  FOUR
+  SIX
   EIGHT
 }
 
@@ -109,5 +152,3 @@ enum Role {
   ADMIN
   USER
 }
-
-

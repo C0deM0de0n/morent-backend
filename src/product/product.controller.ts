@@ -57,7 +57,7 @@ export class ProductController {
 	}
 
 	@Delete('delete/:id')
-	@Roles(['admin'])
+	@Roles(['USER'])
 	@Auth()
 	@HttpCode(200)
 	async deleteById(@Param('id') id: string) {
