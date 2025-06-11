@@ -19,7 +19,7 @@ model Users {
   mobile    String?     @unique()
   googleId  String?     @unique()
   reviews   Reviews[]
-  Cart      Cart[]
+  Orders    Orders[]
   favorites Favorites[]
   role      Role        @default(USER)
 
@@ -52,31 +52,22 @@ model FavoritesItem {
   @@map("favorite_items")
 }
 
-model Cart {
-  id        String      @id() @default(cuid())
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt() @map("updated_at")
-  cartItems CartItems[]
+model Orders {
+  id           String   @id() @default(cuid())
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt() @map("updated_at")
+  pickUp       DateTime
+  dropOff      DateTime
+  locationPick String   @map("location_pick")
+  locationDrop String   @map("location_drop")
 
-  user   Users  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @unique @map("user_id")
-
-  @@map("cart")
-}
-
-model CartItems {
-  id        String   @id() @default(cuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt() @map("updated_at")
-  quantity  Int      @default(1)
-
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String   @map("product_id")
-  cartId    String   @map("cart_id")
+  userId    String   @map("user_id")
 
-  @@unique([cartId, productId])
-  @@map("cart_items")
+  @@unique([userId, productId])
+  @@map("Orders")
 }
 
 model Products {
@@ -91,9 +82,10 @@ model Products {
   capacity      Capacity
   gasoline      Int
   price         Float
+  quantity      Int             @default(1)
   discount      Discounts[]
   reviews       Reviews[]
-  cartItems     CartItems[]
+  orders        Orders[]
   favoritesItem FavoritesItem[]
 
   @@map("product")

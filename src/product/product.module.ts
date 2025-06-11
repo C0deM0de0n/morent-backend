@@ -9,5 +9,6 @@ import { GoogleCloudService } from 'src/upload-files/google-cloud.service';
   imports: [ConfigModule],
   controllers: [ProductController],
   providers: [ProductService, PrismaService, GoogleCloudService],
+  exports: [ProductService]
 })
 export class ProductModule {}

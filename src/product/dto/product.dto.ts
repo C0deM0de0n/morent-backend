@@ -1,4 +1,4 @@
-import {IsString, IsNotEmpty, IsArray, IsNumber, IsEnum, } from 'class-validator'
+import {IsString, IsNotEmpty, IsArray, IsNumber, IsEnum, IsOptional, } from 'class-validator'
 import { CarType, CarSteering, Capacity } from 'generated/prisma'
 
 export class ProductDto {
@@ -24,4 +24,8 @@ export class ProductDto {
 
   @IsString()
   price: string
+
+  @IsString()
+  @IsOptional()
+  quantity?: string
 }
