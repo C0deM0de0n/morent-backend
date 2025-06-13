@@ -49,7 +49,7 @@ export class ProductController {
 	}
 
 	@Delete('delete-all')
-	@Roles(['USER'])
+	@Roles(['ADMIN'])
 	@Auth()
 	@HttpCode(200)
 	async deleteAll() {

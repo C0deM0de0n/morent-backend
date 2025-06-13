@@ -21,7 +21,7 @@ export class FavoritesController {
 		@CurrentUser('id') userId: string,
 		@Param('id') productId: string
 	) {
-		return this.favoritesService.addToFavorite(userId, productId)
+		return this.favoritesService.addToFavorites(userId, productId)
 	}
 
 	@Delete('clear')

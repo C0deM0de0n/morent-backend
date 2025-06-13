@@ -1,4 +1,5 @@
-import { IsDateString, IsString } from 'class-validator'
+import { IsDateString, IsString, Validate } from 'class-validator'
+import { FullDayRangeValidator } from './fullDateRangeValidator'
 
 export class CreateOrderDto {
   @IsString()
@@ -15,4 +16,15 @@ export class CreateOrderDto {
 
   @IsString()
   locationDrop: string
+
+  @Validate(FullDayRangeValidator)
+  dateRange: any
+
+  @IsString()
+  currency: string
+}
+
+export class ConfirmOrderDto extends CreateOrderDto {
+  @IsString()
+  paymentIntentId: string
 }

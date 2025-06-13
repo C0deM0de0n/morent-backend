@@ -1,60 +1,41 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from 'src/prisma.service'
-import { Favorites, FavoritesItem, Products } from 'generated/prisma'
+import { Favorites } from 'generated/prisma'
+import { ProductService } from 'src/product/product.service'
 
 @Injectable()
 export class FavoritesService {
-	constructor(private prismaService: PrismaService) {}
+	constructor(
+		private prismaService: PrismaService,
+		private productService: ProductService
+	) {}
 
-	async getFavorites(
-		userId: string
-	): Promise<(Favorites & { favoritesItem: (FavoritesItem & { product: Products })[] })> {
-		let favorites = await this.prismaService.favorites.findUnique({
-			where: { userId },
-			include: {
-				favoritesItem: {
-					include: { product: true },
-				},
-			},
-		})
-		if (!favorites) {
-			favorites = await this.prismaService.favorites.create({
-				data: { userId },
-				include: {
-					favoritesItem: {
-						include: { product: true },
-					},
-				},
-			})
-		}
-		return favorites
-	}
+	async getFavorites(userId: string): Promise<Favorites[]> {
+		return this.prismaService.favorites.findMany({ where: { userId } })
+	} 
 
-	async getFavoriteItem(
-		favoritesId: string,
-		productId: string
-	): Promise<FavoritesItem | null> {
-		const key = { favoritesId, productId }
-		const existingItem = await this.prismaService.favoritesItem.findUnique({
-			where: { favoritesId_productId: key },
+	async getFavorite(userId: string, productId: string): Promise<Favorites | null> {
+		const { id } = await this.productService.getById(productId)
+
+		const key = { userId, productId: id }
+
+		return this.prismaService.favorites.findUnique({
+			where: { userId_productId: key },
 		})
 
-		return existingItem
 	}
 
-	async addToFavorite(userId: string, productId: string): Promise<{ message: string }> {
-		const favorites = await this.getFavorites(userId)
-		const favoriteItem = await this.getFavoriteItem(favorites.id, productId)
+	async addToFavorites(userId: string, productId: string): Promise<{ message: string }> {
+		const favorite = await this.getFavorite(userId, productId)
 
-		const key = { favoritesId: favorites.id, productId }
-
-		if(!favoriteItem) {
-			await this.prismaService.favoritesItem.create({
-				data: { favoritesId: favorites.id, productId }
+		if(!favorite) {
+			await this.prismaService.favorites.create({
+				data: { userId: userId, productId }
 			})
 			return { message: 'Added to favorites' };
 		} else {
-			await this.prismaService.favoritesItem.delete({ where: { favoritesId_productId: key } })
+			const key = { userId: userId, productId }
+			await this.prismaService.favorites.delete({ where: { userId_productId: key } })
 			return { message: 'Removed from favorites' }
 		}
 	}
@@ -62,9 +43,10 @@ export class FavoritesService {
 	async clearFavorites(userId: string): Promise<{ message: string }> {
 		const favorites = await this.getFavorites(userId)
 
-		await this.prismaService.favoritesItem.deleteMany({
-			where: { favoritesId: favorites.id },
-		})
+		if(favorites.length === 0) 
+			throw new NotFoundException('No favorites found to delete')
+		
+		await this.prismaService.favorites.deleteMany({ where: { userId } })
 
 		return { message: 'Favorites cleared successfully' }
 	}

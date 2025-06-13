@@ -23,90 +23,83 @@ model Users {
   favorites Favorites[]
   role      Role        @default(USER)
 
-  @@map("user")
+  @@map("users")
 }
 
 model Favorites {
-  id            String          @id() @default(cuid())
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt() @map("updated_at")
-  favoritesItem FavoritesItem[]
-
-  user   Users  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @unique @map("user_id")
-
-  @@map("favorite")
-}
-
-model FavoritesItem {
   id        String   @id() @default(cuid())
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt() @map("updated_at")
 
-  product     Products  @relation(fields: [productId], references: [id])
-  favorite    Favorites @relation(fields: [favoritesId], references: [id])
-  productId   String    @map("product_id")
-  favoritesId String    @map("favorite_id")
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Products @relation(fields: [productId], references: [id])
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
 
-  @@unique([favoritesId, productId])
-  @@map("favorite_items")
+  @@unique([userId, productId])
+  @@map("favorites")
 }
 
 model Orders {
-  id           String   @id() @default(cuid())
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt() @map("updated_at")
-  pickUp       DateTime
-  dropOff      DateTime
-  locationPick String   @map("location_pick")
-  locationDrop String   @map("location_drop")
+  id              String    @id() @default(cuid())
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt() @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  pickUp          DateTime  @map("pick_up")
+  dropOff         DateTime  @map("drop_off")
+  locationPick    String    @map("location_pick")
+  locationDrop    String    @map("location_drop")
+  price           Int
+  currency        String
+  paymentIntentId String    @map("payment_intent_id")
 
-  product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String   @map("product_id")
-  userId    String   @map("user_id")
+  product Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String @map("product_id")
+  userId    String @map("user_id")
 
   @@unique([userId, productId])
-  @@map("Orders")
+  @@map("orders")
 }
 
 model Products {
-  id            String          @id() @default(cuid())
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt() @map("updated_at")
-  name          String
-  description   String
-  icons         String[]        @default([])
-  type          CarType
-  steering      CarSteering
-  capacity      Capacity
-  gasoline      Int
-  price         Float
-  quantity      Int             @default(1)
-  discount      Discounts[]
-  reviews       Reviews[]
-  orders        Orders[]
-  favoritesItem FavoritesItem[]
+  id          String      @id() @default(cuid())
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt() @map("updated_at")
+  name        String
+  description String
+  icons       String[]    @default([])
+  type        CarType
+  steering    CarSteering
+  capacity    Capacity
+  gasoline    Int
+  price       Float
+  quantity    Int         @default(1)
+  discount    Discounts[]
+  reviews     Reviews[]
+  orders      Orders[]
+  favorites   Favorites[]
 
-  @@map("product")
+  @@map("products")
 }
 
 model Discounts {
   id        String   @id() @default(cuid())
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt() @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   discount  Int
 
   product   Products @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String   @map("product_id")
+  productId String   @unique @map("product_id")
 
-  @@map("discount")
+  @@map("discounts")
 }
 
 model Reviews {
   id        String   @id() @default(cuid())
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt() @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   rating    Int
   comment   String
 
@@ -116,7 +109,7 @@ model Reviews {
   userId    String   @map("user_id")
 
   @@unique([userId, productId])
-  @@map("review")
+  @@map("reviews")
 }
 
 enum CarType {

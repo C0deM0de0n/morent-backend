@@ -55,7 +55,7 @@ export class ProductService {
 	async getById(id: string): Promise<Products> {
 		const product = await this.prismaService.products.findUnique({
 			where: { id },
-			include: { orders: true },
+			include: { orders: true, reviews: true },
 		})
 
 		if (!product) throw new NotFoundException(`Product not found`)
@@ -132,7 +132,7 @@ export class ProductService {
 		const activeOrders = orders.filter(
 			(order) => order.pickUp <= now && order.dropOff >= now
 		)
-		console.log(activeOrders)
+
 		const isAvailableNow = activeOrders.length < quantity
 
 		const futureDropDates = orders

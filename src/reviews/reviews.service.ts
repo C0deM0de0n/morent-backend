@@ -1,5 +1,4 @@
 import {
-	BadRequestException,
 	ConflictException,
 	Injectable,
 	NotFoundException,
@@ -8,10 +7,14 @@ import { PrismaService } from 'src/prisma.service'
 import { CreateReviewsDto } from './dto/reviews.dto'
 import { UpdateReviewsDto } from './dto/reviews.dto'
 import { Reviews } from 'generated/prisma'
+import { ProductService } from 'src/product/product.service'
 
 @Injectable()
 export class ReviewsService {
-	constructor(private prismaService: PrismaService) {}
+	constructor(
+		private prismaService: PrismaService,
+		private productService: ProductService
+	) {}
 
 	async getReviewsProduct(productId: string): Promise<Reviews[]> {
 		return this.prismaService.reviews.findMany({
@@ -21,7 +24,9 @@ export class ReviewsService {
 	}
 
 	async getById(userId: string, productId: string): Promise<Reviews> {
-		const key = { userId, productId }
+		const { id } = await this.productService.getById(productId)
+
+		const key = { userId, productId: id }
 		const existingReview = await this.prismaService.reviews.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
@@ -33,7 +38,10 @@ export class ReviewsService {
 	}
 
 	async create(userId: string, dto: CreateReviewsDto): Promise<Reviews> {
-		const key = { userId, productId: dto.productId }
+		const { id } = await this.productService.getById(dto.productId)
+
+		const key = { userId, productId: id }
+
 		const existingReview = await this.prismaService.reviews.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
@@ -51,7 +59,9 @@ export class ReviewsService {
 
 	async update(userId: string, dto: UpdateReviewsDto): Promise<Reviews> {
 		const { productId, ...data } = dto
-		const key = { userId, productId: dto.productId }
+		const { id } = await this.productService.getById(dto.productId)
+		const key = { userId, productId: id }
+		
 		const existingReview = await this.prismaService.reviews.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
