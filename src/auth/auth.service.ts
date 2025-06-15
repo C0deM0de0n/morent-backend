@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { UserService } from 'src/user/user.service'
@@ -63,6 +63,20 @@ export class AuthService {
 		const tokens = this.createTokens(user.id)
 		return { user, ...tokens }
 	}
+	
+	async updateTokens(refreshToken: string) {
+		const result = await this.jwtService.verifyAsync(refreshToken)
+		if(!result) throw new UnauthorizedException('Invalid refresh token')
+
+		const user = await this.userService.getById(result.id)
+		if(!user) throw new NotFoundException('user not found')
+		const tokens = this.createTokens(user.id)
+
+		return {
+			user,
+			...tokens
+		}
+	}
 
 	private createTokens(id: string) {
 		const data = { id }
@@ -92,5 +106,15 @@ export class AuthService {
 			sameSite: 'strict',
 			expires,
 		})
+	}
+
+	removeRefreshTokenFromCookies(res: Response) {
+		res.cookie('refreshToken', '', {
+			httpOnly: true,
+			domain: 'localhost',
+			secure: true,
+			sameSite: 'none',
+			expires: new Date(0),
+		}) 
 	}
 }

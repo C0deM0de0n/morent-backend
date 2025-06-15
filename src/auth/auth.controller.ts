@@ -7,6 +7,7 @@ import {
 	Post,
 	Req,
 	Res,
+	UnauthorizedException,
 	UseGuards,
 } from '@nestjs/common'
 import { Google0AuthGuard } from 'src/auth/guard/google.guard'
@@ -14,6 +15,7 @@ import { AuthService } from './auth.service'
 import { SendMobileVerify, VerifyMobileCode } from './dto/auth.dto'
 import type { Users } from 'generated/prisma'
 import { Request, Response } from 'express'
+import { Auth } from 'src/decorator/auth.decorator'
 
 @Controller('auth')
 export class AuthController {
@@ -55,5 +57,31 @@ export class AuthController {
 		const { refreshToken, ...user } = await this.authService.googleAuth(googleUser)
 		this.authService.addRefreshTokenToCookies(res, refreshToken)
 		return user
+	}
+
+	@Post('access-token')
+	@HttpCode(200)
+	async updateTokens(
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response
+	) {
+		const refreshTokenFromCookies = req.cookies['refreshToken']
+		if(!refreshTokenFromCookies) {
+			this.authService.removeRefreshTokenFromCookies(res)
+			throw new UnauthorizedException('Refresh token not passed')
+		}
+
+		const { refreshToken, ...user } = await this.authService.updateTokens(refreshTokenFromCookies)
+
+		this.authService.addRefreshTokenToCookies(res, refreshToken)
+
+		return user
+	}
+
+	@Post('logout')
+	@Auth()
+	@HttpCode(200)
+	async logout(@Res({ passthrough: true }) res: Response) {
+		return this.authService.removeRefreshTokenFromCookies(res)
 	}
 }
