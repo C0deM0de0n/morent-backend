@@ -1,33 +1,46 @@
 import {
-	BadGatewayException,
 	BadRequestException,
 	ConflictException,
 	Injectable,
 } from '@nestjs/common'
-import { PrismaService } from 'src/prisma.service'
+import { PrismaService } from 'src/libs/prisma/prisma.service'
+import { StripeService } from 'src/libs/stripe/stripe.service'
 import { ProductService } from 'src/product/product.service'
 import { ConfirmOrderDto, CreateOrderDto } from './dto/order.dto'
-import Stripe from 'stripe'
-import { Orders } from 'generated/prisma'
-import { StripeService } from 'src/stripe/stripe.service'
+import type { Order } from 'generated/prisma'
+import type { IPaymentIntent } from './types/payment.types'
 
 @Injectable()
 export class OrderService {
-	constructor(
-		private prismaService: PrismaService,
-		private productService: ProductService,
-		private stripeService: StripeService
+	public constructor(
+		private readonly prismaService: PrismaService,
+		private readonly productService: ProductService,
+		private readonly stripeService: StripeService
 	) {}
 
-	async getOrders(userId: string): Promise<Orders[]> {
-		return this.prismaService.orders.findMany({
-			where: { userId, deletedAt: null },
-			include: { product: true },
+	public async getOrders(
+		userId: string
+	): Promise<Order[]> {
+		return this.prismaService.order.findMany({
+			where: { 
+				userId, 
+				deletedAt: null 
+			},
+			include: {
+				product: true 
+			},
 		})
 	}
 
-	async createPaymentIntent(dto: CreateOrderDto) {
-		const { productId, pickUp, dropOff, currency } = dto
+	public async createPaymentIntent(
+		dto: CreateOrderDto
+	): Promise<IPaymentIntent> {
+		const { 
+			productId, 
+			pickUp, 
+			dropOff, 
+			currency 
+		} = dto
 		const product = await this.productService.getById(productId)
 
 		const pickUpDate = new Date(pickUp)
@@ -36,7 +49,8 @@ export class OrderService {
 		const amount =
 			this.calculateRentalPrice(pickUpDate, dropOffDate, product.price) * 100
 
-		const paymentIntent = await this.stripeService.createPaymentIntent(
+		const paymentIntent = await this.stripeService
+		.createPaymentIntent(
 			amount,
 			currency
 		)
@@ -44,7 +58,10 @@ export class OrderService {
 		return paymentIntent
 	}
 
-	async createOrder(userId: string, dto: ConfirmOrderDto): Promise<Orders> {
+	public async createOrder(
+		userId: string, 
+		dto: ConfirmOrderDto
+	): Promise<Order> {
 		const {
 			paymentIntentId,
 			currency,
@@ -54,13 +71,15 @@ export class OrderService {
 			locationPick,
 			locationDrop,
 		} = dto
-		const paid = await this.stripeService.verifyPaymentIntent(paymentIntentId)
-    if (!paid) throw new BadRequestException('Payment not confirmed')
+		const paid = await this.stripeService
+		.verifyPaymentIntent(paymentIntentId)
+
+		if (!paid) throw new BadRequestException('Payment not confirmed')
 
 		const product = await this.productService.getById(productId)
 		const pickUpDate = new Date(pickUp)
 		const dropOffDate = new Date(dropOff)
-		const overlappingOrders = await this.prismaService.orders.count({
+		const overlappingOrders = await this.prismaService.order.count({
 			where: {
 				productId,
 				OR: [
@@ -76,9 +95,13 @@ export class OrderService {
 			throw new ConflictException('No available cars for selected dates')
 		}
 
-		const totalPrice = this.calculateRentalPrice(pickUpDate, dropOffDate, product.price)
+		const totalPrice = this.calculateRentalPrice(
+			pickUpDate,
+			dropOffDate,
+			product.price
+		)
 
-		const order = await this.prismaService.orders.create({
+		const order = await this.prismaService.order.create({
 			data: {
 				userId,
 				productId,
@@ -88,7 +111,7 @@ export class OrderService {
 				locationDrop,
 				price: totalPrice,
 				currency,
-				paymentIntentId
+				paymentIntentId,
 			},
 		})
 
@@ -107,4 +130,3 @@ export class OrderService {
 		return numberOfDays * price
 	}
 }
-   

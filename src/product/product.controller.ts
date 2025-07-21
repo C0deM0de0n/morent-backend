@@ -9,58 +9,63 @@ import {
 	UploadedFiles,
 	UseInterceptors,
 } from '@nestjs/common'
-import { ProductService } from './product.service'
-import { Roles } from 'src/decorator/role.decorator'
-import { Auth } from 'src/decorator/auth.decorator'
+import { 
+	FilesUpload 
+} from 'src/libs/common/interceptors/file-upload.interceptor'
+import { 
+	GoogleCloudService 
+} from 'src/libs/upload-files/google-cloud.service'
+import { Authorization } from 'src/decorators/auth.decorator'
 import { ProductDto } from './dto/product.dto'
-import { FilesUpload } from 'src/interceptors/file-upload.interceptor'
-import { GoogleCloudService } from 'src/upload-files/google-cloud.service'
+import { ProductService } from './product.service'
+import type { Product } from 'generated/prisma'
 
 @Controller('product')
 export class ProductController {
-	constructor(
-    private readonly productService: ProductService,
-    private readonly googleCloudService: GoogleCloudService
-  ) {}
+	public constructor(
+		private readonly productService: ProductService,
+		private readonly googleCloudService: GoogleCloudService
+	) {}
 
 	@Get('get-all')
 	@HttpCode(200)
-	async getAll() {
+	public async getAll(): Promise<Product[]> {
 		return this.productService.getAll()
 	}
 
 	@Get('get/:id')
 	@HttpCode(200)
-	async getById(@Param('id') id: string) {
+	public async getById(
+		@Param('id') id: string
+	): Promise<Product> {
 		return this.productService.getById(id)
 	}
 
 	@Post('create')
-	@Roles(['USER'])
-	@Auth()
+	@Authorization('ADMIN')
 	@UseInterceptors(FilesUpload.images())
 	@HttpCode(200)
-	async create(
-    @Body() data: ProductDto,
-    @UploadedFiles() files: Express.Multer.File[]
-  ) {
-    const icons = await this.googleCloudService.uploadFiles(files)
+	public async create(
+		@Body() data: ProductDto,
+		@UploadedFiles() files: Express.Multer.File[]
+	): Promise<Product> {
+		const icons = await this.googleCloudService.uploadFiles(files)
 		return this.productService.create(data, icons)
 	}
 
 	@Delete('delete-all')
-	@Roles(['ADMIN'])
-	@Auth()
+	@Authorization('ADMIN')
 	@HttpCode(200)
-	async deleteAll() {
+	async deleteAll(): Promise<{ message: string }> {
 		return this.productService.deleteAll()
 	}
 
 	@Delete('delete/:id')
-	@Roles(['USER'])
-	@Auth()
+	@Authorization('ADMIN')
 	@HttpCode(200)
-	async deleteById(@Param('id') id: string) {
+	async deleteById(
+		@Param('id') id: string
+	): Promise<{ message: string }> {
 		return this.productService.deleteById(id)
 	}
 }

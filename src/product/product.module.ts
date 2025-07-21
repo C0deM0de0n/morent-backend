@@ -1,14 +1,11 @@
-import { Module } from '@nestjs/common';
-import { ProductService } from './product.service';
-import { ProductController } from './product.controller';
-import { PrismaService } from 'src/prisma.service';
-import { ConfigModule } from '@nestjs/config';
-import { GoogleCloudService } from 'src/upload-files/google-cloud.service';
+import { Module } from '@nestjs/common'
+import { GoogleCloudService } from 'src/libs/upload-files/google-cloud.service'
+import { ProductController } from './product.controller'
+import { ProductService } from './product.service'
 
 @Module({
-  imports: [ConfigModule],
-  controllers: [ProductController],
-  providers: [ProductService, PrismaService, GoogleCloudService],
-  exports: [ProductService]
+	controllers: [ProductController],
+	providers: [ProductService, GoogleCloudService],
+	exports: [ProductService],
 })
 export class ProductModule {}

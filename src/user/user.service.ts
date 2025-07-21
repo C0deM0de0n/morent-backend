@@ -1,26 +1,73 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma.service'
-import type { Users } from 'generated/prisma';
+import { Injectable, NotFoundException } from '@nestjs/common'
+import { PrismaService } from 'src/libs/prisma/prisma.service'
+import { hash } from 'argon2'
+import type { User, AuthMethod } from 'generated/prisma'
+
 
 @Injectable()
 export class UserService {
-	constructor(private prismaService: PrismaService) {}
+	public constructor(
+		private readonly prismaService: PrismaService
+	) {}
 
-	getById(id: string) {
-		return this.prismaService.users.findUnique({ where: { id } })
+	public async findById(
+		id: string
+	): Promise<User> {
+		const user = await this.prismaService.user.findUnique({
+			where: {
+				id,
+			},
+			include: {
+				accounts: true,
+			},
+		})
+
+		if (!user) {
+			throw new NotFoundException(
+				'User not found, make sure you enter a correct data'
+			)
+		}
+
+		return user
 	}
 
-	getByEmail(email: string) {
-		return this.prismaService.users.findUnique({ where: { email } })
+	public async findByEmail(
+		email: string
+	): Promise<User | null> {
+		const user = await this.prismaService.user.findUnique({
+			where: {
+				email,
+			},
+			include: {
+				accounts: true
+			}
+		})
+
+		return user
 	}
 
-	gteByMobile(mobile: string) {
-		return this.prismaService.users.findUnique({ where: { mobile } })
-	}
+	public async create(
+		email: string,
+		name: string,
+		picture: string,
+		password: string,
+		method: AuthMethod,
+		isVerified: boolean
+	): Promise<User> {
+		const user = await this.prismaService.user.create({
+			data: {
+				email,
+				name,
+				picture,
+				password: password ? await hash(password) : '',
+				method,
+				isVerified
+			}, 
+			include: {
+				accounts: true
+			}
+		})
 
-	create(data: Partial<Users>) {
-		return this.prismaService.users.create({
-				data: data
-			})
+		return user
 	}
 }

@@ -1,30 +1,42 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common'
+import { Authorization } from 'src/decorators/auth.decorator'
+import { Authorized } from 'src/decorators/authorized.decorator'
 import { OrderService } from './order.service'
-import { Auth } from 'src/decorator/auth.decorator'
-import { CurrentUser } from 'src/decorator/user.decorator'
 import { CreateOrderDto, ConfirmOrderDto } from './dto/order.dto'
+import type { IPaymentIntent } from './types/payment.types'
+import type { Order } from 'generated/prisma'
 
 @Controller('order')
 export class OrderController {
-	constructor(private readonly orderService: OrderService) {}
+	public constructor(
+		private readonly orderService: OrderService
+	) {}
 
-	@Get()
-	@Auth()
+	@Get('get-all')
+	@Authorization('USER')
 	@HttpCode(200)
-	async getOrders(@CurrentUser('id') userId: string) {
+	public async getOrders(
+		@Authorized('id') userId: string
+	): Promise<Order[]> {
 		return this.orderService.getOrders(userId)
 	}
 
 	@Post('intent')
-	@Auth()
-	async createPaymentIntent(@CurrentUser('id') userId: string, @Body() dto: CreateOrderDto) {
+	@Authorization('USER')
+	public async createPaymentIntent(
+		@Authorized('id') userId: string, 
+		@Body() dto: CreateOrderDto
+	): Promise<IPaymentIntent> {
 		return this.orderService.createPaymentIntent(dto)
 	}
 
 	@Post('create')
-	@Auth()
+	@Authorization('USER')
 	@HttpCode(200)
-	async create(@CurrentUser('id') userId: string, @Body() dto: ConfirmOrderDto) {
+	public async create(
+		@Authorized('id') userId: string, 
+		@Body() dto: ConfirmOrderDto
+	): Promise<Order> {
 		return this.orderService.createOrder(userId, dto)
 	}
 }

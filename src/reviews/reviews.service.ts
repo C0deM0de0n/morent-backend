@@ -3,11 +3,10 @@ import {
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common'
-import { PrismaService } from 'src/prisma.service'
-import { CreateReviewsDto } from './dto/reviews.dto'
-import { UpdateReviewsDto } from './dto/reviews.dto'
-import { Reviews } from 'generated/prisma'
+import { Review } from 'generated/prisma'
+import { PrismaService } from 'src/libs/prisma/prisma.service'
 import { ProductService } from 'src/product/product.service'
+import { CreateReviewsDto, UpdateReviewsDto } from './dto/reviews.dto'
 
 @Injectable()
 export class ReviewsService {
@@ -16,18 +15,18 @@ export class ReviewsService {
 		private productService: ProductService
 	) {}
 
-	async getReviewsProduct(productId: string): Promise<Reviews[]> {
-		return this.prismaService.reviews.findMany({
+	async getReviewsProduct(productId: string): Promise<Review[]> {
+		return this.prismaService.review.findMany({
 			where: { productId },
 			include: { user: true },
 		})
 	}
 
-	async getById(userId: string, productId: string): Promise<Reviews> {
+	async getById(userId: string, productId: string): Promise<Review> {
 		const { id } = await this.productService.getById(productId)
 
 		const key = { userId, productId: id }
-		const existingReview = await this.prismaService.reviews.findUnique({
+		const existingReview = await this.prismaService.review.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
 		})
@@ -37,19 +36,19 @@ export class ReviewsService {
 		return existingReview
 	}
 
-	async create(userId: string, dto: CreateReviewsDto): Promise<Reviews> {
+	async create(userId: string, dto: CreateReviewsDto): Promise<Review> {
 		const { id } = await this.productService.getById(dto.productId)
 
 		const key = { userId, productId: id }
 
-		const existingReview = await this.prismaService.reviews.findUnique({
+		const existingReview = await this.prismaService.review.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
 		})
 
 		if (existingReview) throw new ConflictException('Review already exist')
 
-		return this.prismaService.reviews.create({
+		return this.prismaService.review.create({
 			data: {
 				...dto,
 				userId,
@@ -57,18 +56,18 @@ export class ReviewsService {
 		})
 	}
 
-	async update(userId: string, dto: UpdateReviewsDto): Promise<Reviews> {
+	async update(userId: string, dto: UpdateReviewsDto): Promise<Review> {
 		const { productId, ...data } = dto
 		const { id } = await this.productService.getById(dto.productId)
 		const key = { userId, productId: id }
-		
-		const existingReview = await this.prismaService.reviews.findUnique({
+
+		const existingReview = await this.prismaService.review.findUnique({
 			where: { userId_productId: key },
 			include: { user: true },
 		})
 		if (!existingReview) throw new NotFoundException('Review not found')
 
-		return this.prismaService.reviews.update({
+		return this.prismaService.review.update({
 			where: { userId_productId: key },
 			data: data,
 		})
@@ -82,7 +81,7 @@ export class ReviewsService {
 		const existingReview = await this.getById(userId, productId)
 		if (!existingReview) throw new NotFoundException('Review not found')
 
-		await this.prismaService.reviews.delete({
+		await this.prismaService.review.delete({
 			where: { userId_productId: key },
 		})
 
@@ -90,14 +89,14 @@ export class ReviewsService {
 	}
 
 	async deleteAll(userId: string): Promise<{ message: string }> {
-		const existingReviews = await this.prismaService.reviews.findMany({
+		const existingReviews = await this.prismaService.review.findMany({
 			where: { userId },
 		})
 
 		if (existingReviews.length === 0)
 			throw new NotFoundException('No reviews found to delete')
 
-		await this.prismaService.reviews.deleteMany()
+		await this.prismaService.review.deleteMany()
 
 		return { message: 'Reviews deleted successfully' }
 	}
