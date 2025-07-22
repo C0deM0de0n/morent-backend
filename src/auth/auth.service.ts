@@ -9,10 +9,17 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
 import { UserService } from 'src/user/user.service';
-import type { TProviderAuth } from './types/provider-auth';
 import { RegisterDto } from './dto/register.dto';
-import { hash, verify } from 'argon2';
+import { verify } from 'argon2';
 import { LoginDto } from './dto/login.dto';
+import type { User } from 'generated/prisma';
+import type { TProviderAuth } from './types/provider-auth';
+
+type AuthResponse = {
+    accessToken: string;
+    refreshToken: string;
+    user: Omit<User, 'password'>;
+};
 
 @Injectable()
 export class AuthService {
@@ -22,21 +29,21 @@ export class AuthService {
         private jwtService: JwtService,
     ) {}
 
-    public async login(dto: LoginDto) {
+    public async login(dto: LoginDto): Promise<AuthResponse> {
         const isExist = await this.userService.findByEmail(dto.email);
 
         if (!isExist) {
             throw new NotFoundException('Invalid Email or Password');
         }
 
-        if(!isExist.password) {
-            throw new BadRequestException('Invalid Email or Password')
+        if (!isExist.password) {
+            throw new BadRequestException('Invalid Email or Password');
         }
 
-        const passwordMatches = await verify(isExist.password, dto.password)
+        const passwordMatches = await verify(isExist.password, dto.password);
 
-        if(!passwordMatches) {
-            throw new BadRequestException('Invalid Email or Password')
+        if (!passwordMatches) {
+            throw new BadRequestException('Invalid Email or Password');
         }
 
         const tokens = this.createTokens(isExist.id);
@@ -45,7 +52,7 @@ export class AuthService {
         return { user, ...tokens };
     }
 
-    public async register(dto: RegisterDto) {
+    public async register(dto: RegisterDto): Promise<AuthResponse> {
         const isExist = await this.userService.findByEmail(dto.email);
 
         if (isExist) {
@@ -62,7 +69,7 @@ export class AuthService {
         return { user, ...tokens };
     }
 
-    public async googleAuth(data: TProviderAuth) {
+    public async googleAuth(data: TProviderAuth): Promise<AuthResponse> {
         if (!data.email) throw new BadRequestException(`Failed to get Email`);
 
         let user = await this.userService.findByProvider(data.provider, data.providerAccountId);
@@ -83,7 +90,7 @@ export class AuthService {
         return { user, ...tokens };
     }
 
-    public async updateTokens(refreshToken: string) {
+    public async updateTokens(refreshToken: string): Promise<AuthResponse> {
         const result = await this.jwtService.verifyAsync(refreshToken);
         if (!result) throw new UnauthorizedException('Invalid refresh token');
 
@@ -109,7 +116,6 @@ export class AuthService {
         return { accessToken, refreshToken };
     }
 
-
     public addRefreshTokenToCookies(res: Response, refreshToken: string) {
         const expires = new Date();
         expires.setDate(expires.getDate() + 7);
@@ -120,7 +126,7 @@ export class AuthService {
             secure: true,
             sameSite: 'strict',
             expires,
-            signed: true
+            signed: true,
         });
     }
 

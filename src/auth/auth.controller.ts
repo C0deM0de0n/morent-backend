@@ -34,7 +34,7 @@ export class AuthController {
     public async googleAuthCallBack(
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
-    ): Promise<{ accessToken: string; user: User }> {
+    ): Promise<{ accessToken: string; user: Omit<User, 'password'> }> {
         const googleUser = req.user as TProviderAuth;
         if (!googleUser) throw new BadRequestException('Google user not found');
 
