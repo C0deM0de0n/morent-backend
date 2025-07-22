@@ -9,12 +9,8 @@ import {
 	UploadedFiles,
 	UseInterceptors,
 } from '@nestjs/common'
-import { 
-	FilesUpload 
-} from 'src/libs/common/interceptors/file-upload.interceptor'
-import { 
-	GoogleCloudService 
-} from 'src/libs/upload-files/google-cloud.service'
+import { FilesUpload } from './interceptors/file-upload.interceptor'
+import { GoogleCloudService } from './upload-files/google-cloud.service'
 import { Authorization } from 'src/decorators/auth.decorator'
 import { ProductDto } from './dto/product.dto'
 import { ProductService } from './product.service'

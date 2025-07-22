@@ -13,9 +13,7 @@ export class UserController {
   @Get('profile')
   @Authorization('USER')
   @HttpCode(200)
-  public async getProfile(
-    @Authorized('id') userId: string
-  ): Promise<User> {
+  public async getProfile(@Authorized('id') userId: string): Promise<User> {
     return this.userService.findById(userId)
   }
 }

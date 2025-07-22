@@ -1,112 +1,136 @@
 import {
-	ConflictException,
-	Injectable,
-	InternalServerErrorException,
-	NotFoundException,
-	UnauthorizedException,
-} from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { UserService } from 'src/user/user.service'
-import { RegisterDto } from './dto/register.dto'
-import { AuthMethod, type User } from 'generated/prisma'
-import { Request, Response } from 'express'
-import { LoginDto } from './dto/login.dto'
-import { verify } from 'argon2'
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { Response } from 'express';
+import { UserService } from 'src/user/user.service';
+import type { TProviderAuth } from './types/provider-auth';
+import { RegisterDto } from './dto/register.dto';
+import { hash, verify } from 'argon2';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-	public constructor(
-		private readonly userService: UserService,
-		private readonly configService: ConfigService
-	) {}
+    public constructor(
+        private configService: ConfigService,
+        private userService: UserService,
+        private jwtService: JwtService,
+    ) {}
 
-	public async register(
-		req: Request,
-		dto: RegisterDto
-	): Promise<User> {
-		const isExist = await this.userService.findByEmail(dto.email)
+    public async login(dto: LoginDto) {
+        const isExist = await this.userService.findByEmail(dto.email);
 
-		if (isExist) {
-			throw new ConflictException(
-				'Register is failed. User with this email is already exist, please use 	another email or try to login instead'
-			)
-		}
+        if (!isExist) {
+            throw new NotFoundException('Invalid Email or Password');
+        }
 
-		const newUser = await this.userService.create(
-			dto.email,
-			dto.password,
-			dto.name,
-			'',
-			AuthMethod.CREDENTIALS,
-			false
-		)
+        if(!isExist.password) {
+            throw new BadRequestException('Invalid Email or Password')
+        }
 
-		return this.saveSession(req, newUser)
-	}
+        const passwordMatches = await verify(isExist.password, dto.password)
 
-	public async login(
-		req: Request,
-		dto: LoginDto
-	): Promise<User> {
-		const isExist = await this.userService.findByEmail(dto.email)
+        if(!passwordMatches) {
+            throw new BadRequestException('Invalid Email or Password')
+        }
 
-		if(!isExist || !isExist.password) {
-			throw new NotFoundException(
-				'User not found, register a new account or try another way to login'
-			)
-		}
+        const tokens = this.createTokens(isExist.id);
+        const { password, ...user } = isExist;
 
-		const isValidPassword = await verify(
-			isExist.password, dto.password
-		)
+        return { user, ...tokens };
+    }
 
-		if(!isValidPassword) {
-			throw new UnauthorizedException('Invalid email or password')
-		}
+    public async register(dto: RegisterDto) {
+        const isExist = await this.userService.findByEmail(dto.email);
 
-		return this.saveSession(req, isExist)
-	}
+        if (isExist) {
+            throw new ConflictException(
+                `This email is already registered. Sign in with your password or reset it.`,
+            );
+        }
 
-	public async logout(
-		req: Request,
-		res: Response
-	): Promise<void> {
-		return new Promise((resolve, reject) => {
-			req.session.destroy((error) => {
-				if(error) {
-					return reject(
-						new InternalServerErrorException(
-							'Failed to destroy a session'
-						)
-					)
-				}
-				res.clearCookie(
-					this.configService.getOrThrow<string>('SESSION_NAME')
-				)
-				resolve()
-			})
-		})
-	}
+        const newUser = await this.userService.createWithCredentials(dto);
 
-	private async saveSession(
-		req: Request, 
-		user: User
-	): Promise<User> {
-		return new Promise((resolve, reject) => {
-			req.session.userId = user.id
+        const tokens = this.createTokens(newUser.id);
+        const { password, ...user } = newUser;
 
-			req.session.save((error) => {
-				if (error) {
-					return reject(
-						// new InternalServerErrorException(
-						// 	'Failed to save session. Please make sure if session settings are okay'
-						// )
-						console.log(error)
-					)
-				}
+        return { user, ...tokens };
+    }
 
-				return resolve(user)
-			})
-		})
-	}
+    public async googleAuth(data: TProviderAuth) {
+        if (!data.email) throw new BadRequestException(`Failed to get Email`);
+
+        let user = await this.userService.findByProvider(data.provider, data.providerAccountId);
+
+        if (!user) {
+            let unVerifiedUser = await this.userService.findByEmail(data.email);
+
+            if (unVerifiedUser) {
+                throw new ConflictException(
+                    `This email is already registered. Sign in with your password or reset it.`,
+                );
+            }
+
+            user = await this.userService.createWithProvider(data);
+        }
+
+        const tokens = this.createTokens(user.id);
+        return { user, ...tokens };
+    }
+
+    public async updateTokens(refreshToken: string) {
+        const result = await this.jwtService.verifyAsync(refreshToken);
+        if (!result) throw new UnauthorizedException('Invalid refresh token');
+
+        const user = await this.userService.findById(result.id);
+        const tokens = this.createTokens(user.id);
+
+        return {
+            user,
+            ...tokens,
+        };
+    }
+
+    private createTokens(id: string) {
+        const data = { id };
+        const accessToken = this.jwtService.sign(data, {
+            expiresIn: '1h',
+        });
+
+        const refreshToken = this.jwtService.sign(data, {
+            expiresIn: '7d',
+        });
+
+        return { accessToken, refreshToken };
+    }
+
+
+    public addRefreshTokenToCookies(res: Response, refreshToken: string) {
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 7);
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            domain: 'localhost',
+            secure: true,
+            sameSite: 'strict',
+            expires,
+            signed: true
+        });
+    }
+
+    public removeRefreshTokenFromCookies(res: Response) {
+        res.cookie('refreshToken', '', {
+            httpOnly: true,
+            domain: 'localhost',
+            secure: true,
+            sameSite: 'none',
+            expires: new Date(0),
+        });
+    }
 }
