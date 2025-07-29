@@ -21,7 +21,9 @@ import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) {}
+    constructor(
+        private readonly authService: AuthService,
+    ) {}
 
     @Get('google')
     @HttpCode(200)
@@ -34,13 +36,13 @@ export class AuthController {
     public async googleAuthCallBack(
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
-    ): Promise<{ accessToken: string; user: Omit<User, 'password'> }> {
+    ): Promise<void> {
         const googleUser = req.user as TProviderAuth;
         if (!googleUser) throw new BadRequestException('Google user not found');
 
         const { refreshToken, ...user } = await this.authService.googleAuth(googleUser);
         this.authService.addRefreshTokenToCookies(res, refreshToken);
-        return user;
+        res.redirect(`http://localhost:3000`)
     }
 
     @Post('login')
@@ -69,7 +71,7 @@ export class AuthController {
         return user;
     }
 
-    @Post('access-token')
+    @Post('update-tokens')
     @HttpCode(200)
     async updateTokens(
         @Req() req: Request,

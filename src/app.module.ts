@@ -8,6 +8,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { OrderModule } from './order/order.module';
 import { IS_DEV_ENV } from './libs/common/utils/is-dev';
+import { LocationModule } from './location/location.module';
 
 @Global()
 @Module({
@@ -22,7 +23,7 @@ import { IS_DEV_ENV } from './libs/common/utils/is-dev';
     ProductModule, 
     ReviewsModule, 
     FavoritesModule, 
-    OrderModule, 
+    OrderModule, LocationModule, 
   ],
 })
 export class AppModule {}

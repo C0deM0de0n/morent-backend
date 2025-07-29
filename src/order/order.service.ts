@@ -1,132 +1,104 @@
-import {
-	BadRequestException,
-	ConflictException,
-	Injectable,
-} from '@nestjs/common'
-import { PrismaService } from 'src/libs/prisma/prisma.service'
-import { StripeService } from 'src/libs/stripe/stripe.service'
-import { ProductService } from 'src/product/product.service'
-import { ConfirmOrderDto, CreateOrderDto } from './dto/order.dto'
-import type { Order } from 'generated/prisma'
-import type { IPaymentIntent } from './types/payment.types'
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/libs/prisma/prisma.service';
+import { StripeService } from 'src/libs/stripe/stripe.service';
+import { ProductService } from 'src/product/product.service';
+import { LocationService } from 'src/location/location.service';
+import { ConfirmOrderDto, CreateOrderDto } from './dto/order.dto';
+import type { Order } from 'generated/prisma';
+import type { IPaymentIntent } from './types/payment.types';
 
 @Injectable()
 export class OrderService {
-	public constructor(
-		private readonly prismaService: PrismaService,
-		private readonly productService: ProductService,
-		private readonly stripeService: StripeService
-	) {}
+    public constructor(
+        private readonly prismaService: PrismaService,
+        private readonly productService: ProductService,
+        private readonly locationService: LocationService,
+        private readonly stripeService: StripeService,
+    ) {}
 
-	public async getOrders(
-		userId: string
-	): Promise<Order[]> {
-		return this.prismaService.order.findMany({
-			where: { 
-				userId, 
-				deletedAt: null 
-			},
-			include: {
-				product: true 
-			},
-		})
-	}
+    public async getOrders(userId: string): Promise<Order[]> {
+        return this.prismaService.order.findMany({
+            where: {
+                userId,
+                deletedAt: null,
+            },
+            include: {
+                product: true,
+            },
+        });
+    }
 
-	public async createPaymentIntent(
-		dto: CreateOrderDto
-	): Promise<IPaymentIntent> {
-		const { 
-			productId, 
-			pickUp, 
-			dropOff, 
-			currency 
-		} = dto
-		const product = await this.productService.getById(productId)
+    public async createPaymentIntent(dto: CreateOrderDto): Promise<IPaymentIntent> {
+        const { productId, pickUp, dropOff, currency } = dto;
+        const product = await this.productService.getById(productId);
 
-		const pickUpDate = new Date(pickUp)
-		const dropOffDate = new Date(dropOff)
+        const pickUpDate = new Date(pickUp);
+        const dropOffDate = new Date(dropOff);
 
-		const amount =
-			this.calculateRentalPrice(pickUpDate, dropOffDate, product.price) * 100
+        const amount = this.calculateRentalPrice(pickUpDate, dropOffDate, product.price) * 100;
 
-		const paymentIntent = await this.stripeService
-		.createPaymentIntent(
-			amount,
-			currency
-		)
+        const paymentIntent = await this.stripeService.createPaymentIntent(amount, currency);
 
-		return paymentIntent
-	}
+        return paymentIntent;
+    }
 
-	public async createOrder(
-		userId: string, 
-		dto: ConfirmOrderDto
-	): Promise<Order> {
-		const {
-			paymentIntentId,
-			currency,
-			productId,
-			pickUp,
-			dropOff,
-			locationPick,
-			locationDrop,
-		} = dto
-		const paid = await this.stripeService
-		.verifyPaymentIntent(paymentIntentId)
+    public async createOrder(
+			userId: string,
+			 dto: ConfirmOrderDto
+			): Promise<Order> {
+        // const paid = await this.stripeService
+        // .verifyPaymentIntent(paymentIntentId)
 
-		if (!paid) throw new BadRequestException('Payment not confirmed')
+        // if (!paid) throw new BadRequestException('Payment not confirmed')
+        const product = await this.productService.getById(dto.productId);
 
-		const product = await this.productService.getById(productId)
-		const pickUpDate = new Date(pickUp)
-		const dropOffDate = new Date(dropOff)
-		const overlappingOrders = await this.prismaService.order.count({
-			where: {
-				productId,
-				OR: [
-					{
-						pickUp: { lt: dropOffDate },
-						dropOff: { gt: pickUpDate },
-					},
-				],
-			},
-		})
+        const locations = await this.locationService.availableLocations(
+            dto.locationPickUpId,
+            dto.locationDropOffId,
+            dto.pickUp,
+            dto.dropOff,
+        );
 
-		if (overlappingOrders >= product.quantity) {
-			throw new ConflictException('No available cars for selected dates')
-		}
+        const totalPrice = this.calculateRentalPrice(
+            locations.pickUpDate, 
+            locations.dropOffDate, 
+            product.price
+        );
 
-		const totalPrice = this.calculateRentalPrice(
-			pickUpDate,
-			dropOffDate,
-			product.price
-		)
+        const pickUpLocation = await this.prismaService.pickUp.create({
+            data: {
+                pickUp: locations.pickUpDate,
+                locationId: dto.locationPickUpId
+            }
+        })
 
-		const order = await this.prismaService.order.create({
-			data: {
-				userId,
-				productId,
-				pickUp: pickUpDate,
-				dropOff: dropOffDate,
-				locationPick,
-				locationDrop,
-				price: totalPrice,
-				currency,
-				paymentIntentId,
-			},
-		})
+        const dropOffLocation = await this.prismaService.dropOff.create({
+            data: {
+                dropOff: locations.dropOffDate,
+                locationId: dto.locationDropOffId
+            }
+        })
 
-		return order
-	}
+        const order = await this.prismaService.order.create({
+            data: {
+                userId,
+                productId: dto.productId,
+                price: totalPrice,
+                currency: dto.currency,
+                paymentIntentId: dto.paymentIntentId,
+                pickUpId: pickUpLocation.id,
+                dropOffId: dropOffLocation.id
+            },
+        });
 
-	private calculateRentalPrice(
-		pickUpDate: Date,
-		dropOffDate: Date,
-		price: number
-	): number {
-		const oneDayMs = 24 * 60 * 60 * 1000
-		const diffInMs = dropOffDate.getTime() - pickUpDate.getTime()
-		const numberOfDays = diffInMs / oneDayMs
+        return order;
+    }
 
-		return numberOfDays * price
-	}
+    private calculateRentalPrice(pickUpDate: Date, dropOffDate: Date, price: number): number {
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        const diffInMs = dropOffDate.getTime() - pickUpDate.getTime();
+        const numberOfDays = diffInMs / oneDayMs;
+
+        return numberOfDays * price;
+    }
 }

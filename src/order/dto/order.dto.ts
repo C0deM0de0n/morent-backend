@@ -1,4 +1,4 @@
-import { IsDateString, IsString, Validate } from 'class-validator'
+import { IsDateString, IsString, IsUUID, Validate } from 'class-validator'
 import { FullDayRangeValidator } from './fullDateRangeValidator'
 
 export class CreateOrderDto {
@@ -11,11 +11,11 @@ export class CreateOrderDto {
   @IsDateString()
   dropOff: string
 
-  @IsString()
-  locationPick: string
+  @IsUUID()
+  locationPickUpId: string
 
-  @IsString()
-  locationDrop: string
+  @IsUUID()
+  locationDropOffId: string
 
   @Validate(FullDayRangeValidator)
   dateRange: any

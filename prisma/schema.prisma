@@ -40,7 +40,7 @@ model Account {
   provider          String
   providerAccountId String @map("provider_account_id")
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @map("user_id")
 
   @@unique([provider, providerAccountId])
@@ -53,7 +53,7 @@ model Favorite {
   updatedAt DateTime @updatedAt() @map("updated_at")
 
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId    String  @map("user_id")
   productId String  @map("product_id")
 
@@ -67,22 +67,52 @@ model Order {
   updatedAt DateTime  @updatedAt() @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  pickUp          DateTime @map("pick_up")
-  dropOff         DateTime @map("drop_off")
-  locationPick    String   @map("location_pick")
-  locationDrop    String   @map("location_drop")
   price           Int
   currency        String
-  paymentIntentId String   @map("payment_intent_id")
+  paymentIntentId String @map("payment_intent_id")
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  pickUp  PickUp  @relation(fields: [pickUpId], references: [id])
+  dropOff DropOff @relation(fields: [dropOffId], references: [id])
 
-  productId String @map("product_id")
   userId    String @map("user_id")
+  productId String @map("product_id")
+  pickUpId  String @unique @map("pick_up_id")
+  dropOffId String @unique @map("drop_off_id")
 
   @@unique([userId, productId])
   @@map("orders")
+}
+
+model PickUp {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+
+  pickUp DateTime @map("pick_up")
+  order  Order[]
+
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId String   @map("location_id")
+
+  @@unique([pickUp, locationId])
+  @@map("pick_up")
+}
+
+model DropOff {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt() @map("updated_at")
+
+  dropOff DateTime @map("drop_off")
+  order   Order[]
+
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId String   @map("location_id")
+
+  @@unique([dropOff, locationId])
+  @@map("drop_off")
 }
 
 model Product {
@@ -90,19 +120,19 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt() @map("updated_at")
 
-  name        String
-  description String
-  icon        String
-  video       String
-  type        CarType
-  steering    CarSteering
-  capacity    Capacity
-  gasoline    Int
-  price       Float
-  quantity    Int         @default(1)
-  location    String[]
+  name         String
+  description  String
+  mainIcon     String
+  galleryIcons String[]     @map("gallery_icons")
+  type         CarType
+  transmission Transmission
+  steering     CarSteering
+  capacity     Capacity
+  gasoline     Int
+  price        Float
 
   discount  Discount[]
+  location  Location[]
   reviews   Review[]
   orders    Order[]
   favorites Favorite[]
@@ -114,12 +144,32 @@ model Discount {
   id        String   @id() @default(uuid())
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  discount  Int
+
+  discount Int
 
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String  @unique @map("product_id")
 
+  @@unique([productId, id])
   @@map("discounts")
+}
+
+model Location {
+  id        String   @id() @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  city     String
+  address  String
+  quantity Int       @default(1)
+  pickUp   PickUp[]
+  dropOff  DropOff[]
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id")
+
+  @@unique([city, productId, address])
+  @@map("locations")
 }
 
 model Review {

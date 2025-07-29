@@ -6,6 +6,7 @@ import {
 	HttpCode,
 	Param,
 	Post,
+	UploadedFile,
 	UploadedFiles,
 	UseInterceptors,
 } from '@nestjs/common'
@@ -38,26 +39,30 @@ export class ProductController {
 	}
 
 	@Post('create')
-	@Authorization('ADMIN')
-	@UseInterceptors(FilesUpload.images())
+	// @Authorization('ADMIN')
+	@UseInterceptors(FilesUpload.files())
 	@HttpCode(200)
 	public async create(
 		@Body() data: ProductDto,
-		@UploadedFiles() files: Express.Multer.File[]
+		@UploadedFiles() files: {
+			mainIcon: Express.Multer.File[],
+			galleryIcons: Express.Multer.File[]
+		}
 	): Promise<Product> {
-		const icons = await this.googleCloudService.uploadFiles(files)
-		return this.productService.create(data, icons)
+		const mainIcon = await this.googleCloudService.uploadFiles(files.mainIcon)
+		const galleryIcons = await this.googleCloudService.uploadFiles(files.galleryIcons)
+		return this.productService.create(data, mainIcon, galleryIcons)
 	}
 
 	@Delete('delete-all')
-	@Authorization('ADMIN')
+	// @Authorization('ADMIN')
 	@HttpCode(200)
 	async deleteAll(): Promise<{ message: string }> {
 		return this.productService.deleteAll()
 	}
 
 	@Delete('delete/:id')
-	@Authorization('ADMIN')
+	// @Authorization('ADMIN')
 	@HttpCode(200)
 	async deleteById(
 		@Param('id') id: string

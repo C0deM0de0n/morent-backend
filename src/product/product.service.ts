@@ -1,8 +1,18 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Order, Product, Review } from 'generated/prisma';
+import { Discount, DropOff, Location, Order, PickUp, Product, Review } from 'generated/prisma';
 import { PrismaService } from 'src/libs/prisma/prisma.service';
 import { GoogleCloudService } from 'src/product/upload-files/google-cloud.service';
 import { ProductDto } from './dto/product.dto';
+import { Prisma } from 'generated/prisma';
+
+type ProductWithRelations = Prisma.ProductGetPayload<{
+    include: {
+        discount: true,
+        location: true,
+        orders: true,
+        reviews: true
+    }
+}>
 
 type additionalData = {
     isAvailableNow: boolean;
@@ -23,6 +33,7 @@ export class ProductService {
         const products = await this.prismaService.product.findMany({
             include: {
                 discount: true,
+                location: true,
                 reviews: {
                     select: {
                         rating: true,
@@ -31,8 +42,8 @@ export class ProductService {
                 orders: {
                     select: {
                         pickUp: true,
-                        dropOff: true,
-                    },
+                        dropOff: true
+                    }
                 },
             },
         });
@@ -43,7 +54,7 @@ export class ProductService {
             const { ratingAvg, ratings } = this.rating(product.reviews);
             const { isAvailableNow, nextAvailableDate } = this.availableDates(
                 product.orders,
-                product.quantity,
+                product.location,
                 now,
             );
             return {
@@ -57,10 +68,14 @@ export class ProductService {
         });
     }
 
-    public async getById(id: string): Promise<Product> {
+    public async getById(
+        id: string
+    ): Promise<ProductWithRelations> {
         const product = await this.prismaService.product.findUnique({
             where: { id },
             include: {
+                discount: true,
+                location: true,
                 orders: true,
                 reviews: true,
             },
@@ -71,33 +86,36 @@ export class ProductService {
         return product;
     }
 
-    public async create(data: ProductDto, urls: string[]): Promise<Product> {
+    public async create(
+        dto: ProductDto,
+        mainIcon: string[],
+        galleryIcons: string[],
+    ): Promise<Product> {
         try {
             const newProduct = await this.prismaService.product.create({
                 data: {
-                    ...data,
-                    gasoline: Number(data.gasoline),
-                    price: Number(data.price),
-                    icon: urls[0],
-                    video: urls[1],
-                    quantity: Number(data.quantity) || 1,
+                    ...dto,
+                    mainIcon: mainIcon[0],
+                    galleryIcons,
+                    gasoline: Number(dto.gasoline),
+                    price: Number(dto.price)
                 },
             });
             return newProduct;
         } catch (error) {
-            await this.googleCloudService.deleteFiles(urls);
+            await this.googleCloudService.deleteFiles([...mainIcon, ...galleryIcons]);
             throw new InternalServerErrorException('Failed to create product');
         }
     }
 
     public async deleteAll(): Promise<{ message: string }> {
         const products = await this.prismaService.product.findMany({
-            select: { icon: true },
+            select: { mainIcon: true, galleryIcons: true },
         });
 
         if (products.length === 0) throw new NotFoundException('No products found to delete');
 
-        const allIcons = products.flatMap(item => item.icon);
+        const allIcons = products.flatMap(item => item.galleryIcons);
 
         await this.prismaService.product.deleteMany();
         await this.googleCloudService.deleteFiles(allIcons).catch(() => {
@@ -112,9 +130,11 @@ export class ProductService {
 
         await this.prismaService.product.delete({ where: { id } });
 
-        await this.googleCloudService.deleteFiles([product.icon, product.video]).catch(() => {
-            throw new InternalServerErrorException('Failed to delete icon');
-        });
+        await this.googleCloudService
+            .deleteFiles([product.mainIcon, ...product.galleryIcons])
+            .catch(error => {
+                throw new InternalServerErrorException('Failed to delete icon');
+            });
 
         return { message: `Product deleted successfully` };
     }
@@ -131,17 +151,21 @@ export class ProductService {
     }
 
     private availableDates(
-        orders: Pick<Order, 'pickUp' | 'dropOff'>[],
-        quantity: number,
+        orders: { pickUp: PickUp, dropOff: DropOff }[],
+        location: Location[],
         now: Date,
     ) {
-        const activeOrders = orders.filter(order => order.pickUp <= now && order.dropOff >= now);
+        const quantity = location.reduce((sum, loc) => sum + loc.quantity, 0)
+        const activeOrders = orders.filter(order => 
+            order.pickUp.pickUp <= now && 
+            order.dropOff.dropOff >= now
+        );
 
         const isAvailableNow = activeOrders.length < quantity;
 
         const futureDropDates = orders
-            .filter(order => order.dropOff > now)
-            .map(order => order.dropOff)
+            .filter(order => order.dropOff.dropOff >= now)
+            .map(order => order.dropOff.dropOff)
             .sort((a, b) => a.getTime() - b.getTime());
 
         const nextAvailableDate = isAvailableNow ? now : futureDropDates[quantity - 1] || null;
