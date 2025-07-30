@@ -7,5 +7,6 @@ import { ProductModule } from 'src/product/product.module';
   imports: [ ProductModule ],
   controllers: [LocationController],
   providers: [LocationService],
+  exports: [LocationService]
 })
 export class LocationModule {}

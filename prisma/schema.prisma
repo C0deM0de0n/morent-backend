@@ -67,19 +67,17 @@ model Order {
   updatedAt DateTime  @updatedAt() @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
+  pickUp          PickUp[]
+  dropOff         DropOff[]
   price           Int
   currency        String
-  paymentIntentId String @map("payment_intent_id")
+  paymentIntentId String    @map("payment_intent_id")
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  pickUp  PickUp  @relation(fields: [pickUpId], references: [id])
-  dropOff DropOff @relation(fields: [dropOffId], references: [id])
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   userId    String @map("user_id")
   productId String @map("product_id")
-  pickUpId  String @unique @map("pick_up_id")
-  dropOffId String @unique @map("drop_off_id")
 
   @@unique([userId, productId])
   @@map("orders")
@@ -91,12 +89,13 @@ model PickUp {
   updatedAt DateTime @updatedAt() @map("updated_at")
 
   pickUp DateTime @map("pick_up")
-  order  Order[]
 
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  orderId    String   @map("order_id")
   locationId String   @map("location_id")
 
-  @@unique([pickUp, locationId])
+  @@unique([orderId, locationId])
   @@map("pick_up")
 }
 
@@ -106,12 +105,13 @@ model DropOff {
   updatedAt DateTime @updatedAt() @map("updated_at")
 
   dropOff DateTime @map("drop_off")
-  order   Order[]
 
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  orderId    String   @map("order_id")
   locationId String   @map("location_id")
 
-  @@unique([dropOff, locationId])
+  @@unique([orderId, locationId])
   @@map("drop_off")
 }
 

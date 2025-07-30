@@ -40,9 +40,10 @@ export class ProductService {
                     },
                 },
                 orders: {
+                    where: { deletedAt: null },
                     select: {
                         pickUp: true,
-                        dropOff: true
+                        dropOff: true,
                     }
                 },
             },
@@ -103,6 +104,7 @@ export class ProductService {
             });
             return newProduct;
         } catch (error) {
+            console.log(error)
             await this.googleCloudService.deleteFiles([...mainIcon, ...galleryIcons]);
             throw new InternalServerErrorException('Failed to create product');
         }
@@ -151,22 +153,22 @@ export class ProductService {
     }
 
     private availableDates(
-        orders: { pickUp: PickUp, dropOff: DropOff }[],
+        orders: { pickUp: PickUp[], dropOff: DropOff[] }[],
         location: Location[],
         now: Date,
     ) {
         const quantity = location.reduce((sum, loc) => sum + loc.quantity, 0)
-        const activeOrders = orders.filter(order => 
-            order.pickUp.pickUp <= now && 
-            order.dropOff.dropOff >= now
-        );
+        const activeOrders = orders.reduce((sum, order) => 
+            sum + ((order.pickUp.length + order.dropOff.length)/2)
+        , 0)
 
-        const isAvailableNow = activeOrders.length < quantity;
+        const isAvailableNow = activeOrders < quantity;
 
         const futureDropDates = orders
-            .filter(order => order.dropOff.dropOff >= now)
-            .map(order => order.dropOff.dropOff)
-            .sort((a, b) => a.getTime() - b.getTime());
+        .flatMap(order => order.dropOff)
+        .filter(date => date.dropOff >= now)
+        .map(date => date.dropOff)
+        .sort((a, b) => a.getTime() - b.getTime())
 
         const nextAvailableDate = isAvailableNow ? now : futureDropDates[quantity - 1] || null;
 

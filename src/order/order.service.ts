@@ -24,6 +24,16 @@ export class OrderService {
             },
             include: {
                 product: true,
+                pickUp: {
+                    include: {
+                        location: true,
+                    },
+                },
+                dropOff: {
+                    include: {
+                        location: true,
+                    },
+                },
             },
         });
     }
@@ -42,10 +52,7 @@ export class OrderService {
         return paymentIntent;
     }
 
-    public async createOrder(
-			userId: string,
-			 dto: ConfirmOrderDto
-			): Promise<Order> {
+    public async createOrder(userId: string, dto: ConfirmOrderDto): Promise<Order> {
         // const paid = await this.stripeService
         // .verifyPaymentIntent(paymentIntentId)
 
@@ -60,24 +67,10 @@ export class OrderService {
         );
 
         const totalPrice = this.calculateRentalPrice(
-            locations.pickUpDate, 
-            locations.dropOffDate, 
-            product.price
+            locations.pickUpDate,
+            locations.dropOffDate,
+            product.price,
         );
-
-        const pickUpLocation = await this.prismaService.pickUp.create({
-            data: {
-                pickUp: locations.pickUpDate,
-                locationId: dto.locationPickUpId
-            }
-        })
-
-        const dropOffLocation = await this.prismaService.dropOff.create({
-            data: {
-                dropOff: locations.dropOffDate,
-                locationId: dto.locationDropOffId
-            }
-        })
 
         const order = await this.prismaService.order.create({
             data: {
@@ -85,9 +78,23 @@ export class OrderService {
                 productId: dto.productId,
                 price: totalPrice,
                 currency: dto.currency,
-                paymentIntentId: dto.paymentIntentId,
-                pickUpId: pickUpLocation.id,
-                dropOffId: dropOffLocation.id
+                paymentIntentId: 'dto.paymentIntentId',
+            },
+        });
+
+        await this.prismaService.pickUp.create({
+            data: {
+                pickUp: locations.pickUpDate,
+                locationId: dto.locationPickUpId,
+                orderId: order.id
+            },
+        });
+
+        await this.prismaService.dropOff.create({
+            data: {
+                dropOff: locations.dropOffDate,
+                locationId: dto.locationDropOffId,
+                orderId: order.id
             },
         });
 
